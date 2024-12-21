@@ -39,7 +39,28 @@ func (l *RateLimiter) Allow(ctx context.Context, key string, isToken bool) (bool
 	if isToken {
 		if tokenLimit, ok := l.tokenLimits[key]; ok {
 			limit = tokenLimit
+		} else {
+			log.Printf("RateLimiter: Token '%s' não encontrado", key)
 		}
+	}
+	
+	currentCount, err := l.persistence.Get(ctx, key)
+	if err != nil {
+		log.Printf("RateLimiter: Erro ao obter valor da chave '%s': %v", key, err)
+		return false, err
+	}
+	log.Printf("RateLimiter: Valor atual da chave '%s': %d", key, currentCount)
+	
+	if currentCount >= limit {
+		log.Printf("RateLimiter: Chave '%s' atingiu o limite de %d, bloqueando", key, limit)
+		
+		err = l.persistence.Block(ctx, key, time.Duration(l.blockTime)*time.Second)
+		if err != nil {
+			log.Printf("RateLimiter: Erro ao bloquear chave '%s': %v", key, err)
+			return false, err
+		}
+		_ = l.persistence.Reset(ctx, key) 
+		return false, nil
 	}
 
 	count, err := l.persistence.Increment(ctx, key)
@@ -47,21 +68,7 @@ func (l *RateLimiter) Allow(ctx context.Context, key string, isToken bool) (bool
 		log.Printf("RateLimiter: Erro ao incrementar chave '%s': %v", key, err)
 		return false, err
 	}
-	log.Printf("RateLimiter: Contagem atual da chave '%s': %d", key, count)
-
-	if count == 1 {
-		err := l.persistence.SetExpire(ctx, key, int(time.Duration(l.blockTime).Seconds()))
-		if err != nil {
-			log.Printf("RateLimiter: Erro ao definir expiração para chave '%s': %v", key, err)
-			return false, err
-		}
-	}
-
-	if count > limit {
-		log.Printf("RateLimiter: Chave '%s' atingiu o limite de %d, bloqueando", key, limit)
-		_ = l.persistence.Block(ctx, key, time.Duration(l.blockTime)*time.Second)
-		return false, nil
-	}
+	log.Printf("RateLimiter: Valor incrementado da chave '%s': %d", key, count)
 
 	return true, nil
 }

@@ -12,32 +12,30 @@ import (
 )
 
 func main() {
-
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatalf("Erro ao carregar o arquivo .env: %v", err)
 	}
 
 	redisHost := os.Getenv("REDIS_HOST")
-
 	log.Printf(redisHost)
 
 	redisPort := os.Getenv("REDIS_PORT")
-
 	log.Printf(redisPort)
 
 	ipLimit := utils.GetEnvAsInt("REQUEST_LIMIT_IP", 5)
 	blockTime := utils.GetEnvAsInt("BLOCK_TIME", 300)
 	tokenLimits := utils.ParseEnvTokenLimits("TOKEN_LIMITS")
+	log.Printf("Token Limits: %+v", tokenLimits)
 
 	log.Printf("Conectando ao Redis em %s:%s...", redisHost, redisPort)
 
-	redisLimiter := limiter.NewRedisLimiter(redisHost, redisPort)
-	if redisLimiter == nil {
-		log.Fatalf("Erro ao conectar ao Redis em %s:%s", redisHost, redisPort)
+	persistence, err := limiter.NewPersistence()
+	if err != nil {
+		log.Fatalf("Erro ao criar a instância de persistência: %v", err)
 	}
 
-	rateLimiter := limiter.NewRateLimiter(redisLimiter, ipLimit, blockTime, tokenLimits)
+	rateLimiter := limiter.NewRateLimiter(persistence, ipLimit, blockTime, tokenLimits)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -46,8 +44,8 @@ func main() {
 		w.Write([]byte("Request OK"))
 	})
 
-	log.Println("Servidor iniciado em http://localhost:8081")
-	err = http.ListenAndServe(":8081", middleware.RateLimiterMiddleware(rateLimiter)(mux))
+	log.Println("Servidor iniciado em http://localhost:8080")
+	err = http.ListenAndServe(":8080", middleware.RateLimiterMiddleware(rateLimiter)(mux))
 	if err != nil {
 		log.Fatalf("Erro ao iniciar o servidor: %v", err)
 	}

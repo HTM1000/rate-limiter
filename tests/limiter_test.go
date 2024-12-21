@@ -18,16 +18,13 @@ func TestRateLimiterByIP(t *testing.T) {
 
 	for i := 1; i <= 6; i++ {
 		allowed, err := rateLimiter.Allow(ctx, key, false)
-		if err != nil {
-			t.Fatal(err)
-		}
-
+		assert.NoError(t, err)
 		if i > 5 && allowed {
 			t.Fatalf("Esperado bloquear requisição %d, mas foi permitido", i)
 		}
 	}
 
-	time.Sleep(61 * time.Second)
+	time.Sleep(70 * time.Second)
 
 	allowed, err := rateLimiter.Allow(ctx, key, false)
 	assert.NoError(t, err)
@@ -38,24 +35,24 @@ func TestRateLimiterByToken(t *testing.T) {
 	ctx := context.Background()
 	redisLimiter := limiter.NewRedisLimiter("localhost", "6379")
 	tokenLimits := map[string]int{
-		"token1": 10,
+		"token:token1": 10,
 	}
 	rateLimiter := limiter.NewRateLimiter(redisLimiter, 5, 60, tokenLimits)
 
 	tokenKey := "token:token1"
 
 	for i := 1; i <= 11; i++ {
-		allowed, err := rateLimiter.Allow(ctx, tokenKey, true)
-		if err != nil {
-			t.Fatal(err)
-		}
+    allowed, err := rateLimiter.Allow(ctx, tokenKey, true)
+    if err != nil {
+        t.Fatal(err)
+    }
 
-		if i > 10 && allowed {
-			t.Fatalf("Esperado bloquear requisição %d, mas foi permitido", i)
-		}
+    if i > 10 && allowed {
+        t.Fatalf("Esperado bloquear requisição %d, mas foi permitido", i)
+    }
 	}
 
-	time.Sleep(61 * time.Second)
+	time.Sleep(70 * time.Second)
 
 	allowed, err := rateLimiter.Allow(ctx, tokenKey, true)
 	assert.NoError(t, err)

@@ -30,8 +30,7 @@ func ParseEnvTokenLimits(key string) map[string]int {
 		return tokenLimits
 	}
 
-	for _, tokenConfig := range strings.Split(valueStr, ",") {
-		parts := strings.Split(tokenConfig, ":")
+	for _, tokenConfig := range strings.Split(valueStr, ";") {
 		if len(parts) == 2 {
 			if limit, err := strconv.Atoi(parts[1]); err == nil {
 				tokenLimits[parts[0]] = limit
